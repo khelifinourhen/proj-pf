@@ -1,0 +1,23 @@
+{
+  "folders": [
+    {
+      "path": "."
+    }
+  ],
+  "settings": {
+    "C_Cpp.default.compilerPath": "",
+    "C_Cpp.default.includePath": [
+      "${workspaceFolder}/**"
+    ],
+    "files.associations": {
+      "*.ino": "cpp"
+    },
+    "editor.formatOnSave": false
+  },
+  "extensions": {
+    "recommendations": [
+      "wokwi.wokwi-vscode",
+      "ms-vscode.cpptools"
+    ]
+  }
+}

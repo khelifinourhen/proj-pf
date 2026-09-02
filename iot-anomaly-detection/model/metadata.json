@@ -1,0 +1,71 @@
+{
+  "model": "IsolationForest",
+  "version": "2.0",
+  "pipeline_steps": [
+    "SimpleImputer(median)",
+    "StandardScaler",
+    "IsolationForest"
+  ],
+  "n_estimators": 200,
+  "random_state": 42,
+  "threshold": 0.5233975598850192,
+  "threshold_percentile": 95,
+  "contamination": 0.12098292350298274,
+  "features": [
+    "ambient_temp_c",
+    "humidity_pct",
+    "altitude_m",
+    "airspeed_kts",
+    "load_pct",
+    "operating_hours",
+    "flight_cycle_count",
+    "cycles_since_maintenance",
+    "maintenance_age_days",
+    "temperature_c",
+    "atmospheric_pressure_hpa",
+    "pressure_hpa",
+    "vibration_x_ms2",
+    "vibration_y_ms2",
+    "vibration_z_ms2",
+    "vibration_norm_ms2",
+    "voltage_v",
+    "current_a",
+    "power_w",
+    "energy_wh_interval",
+    "rpm",
+    "motor_current_temp_c",
+    "wifi_rssi_dbm",
+    "packet_latency_ms"
+  ],
+  "n_features": 24,
+  "target": "anomaly_reference",
+  "dataset": "aeronautical_iot_esp32_predictive_maintenance_200k",
+  "split": {
+    "train": 0.6,
+    "val": 0.2,
+    "test": 0.2
+  },
+  "train_size": 119521,
+  "metrics_test": {
+    "accuracy": 0.8476,
+    "precision": 0.2945,
+    "recall": 0.2226,
+    "f1": 0.2536,
+    "roc_auc": 0.6937,
+    "pr_auc": 0.2289,
+    "confusion_matrix": {
+      "tn": 32740,
+      "fp": 2470,
+      "fn": 3600,
+      "tp": 1031
+    }
+  },
+  "forbidden_features": [
+    "fault_injection_level_pct",
+    "failure_type",
+    "failure_event",
+    "anomaly_reference"
+  ],
+  "training_date": "2026-08-27",
+  "sklearn_version": "1.9.0"
+}

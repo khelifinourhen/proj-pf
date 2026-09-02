@@ -1,0 +1,157 @@
+﻿{
+  "__inputs": [],
+  "__requires": [{"type":"datasource","id":"influxdb","name":"InfluxDB","version":"1.0.0"}],
+  "annotations": {"list": []},
+  "description": "Dashboard Monitoring IoT Aeronautique + Detection ML Anomalies - PFE 2025/2026",
+  "editable": true,
+  "graphTooltip": 1,
+  "id": null,
+  "panels": [
+    {
+      "id": 1,
+      "title": "Statut ML - NORMAL / ANOMALY",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
+      "targets": [{
+        "rawQuery": true,
+        "query": "SELECT last(\"ml_status\") FROM \"sensors_ml\" WHERE $timeFilter",
+        "refId": "A"
+      }],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "none",
+        "reduceOptions": {"calcs": ["lastNotNull"]}
+      },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            {"type": "value", "options": {"NORMAL":  {"color": "green",  "text": "NORMAL", "index": 0}}},
+            {"type": "value", "options": {"ANOMALY": {"color": "red",    "text": "ANOMALY", "index": 1}}}
+          ],
+          "color": {"mode": "thresholds"},
+          "thresholds": {"steps": [{"color": "green"},{"color": "red","value": 1}]}
+        }
+      }
+    },
+    {
+      "id": 2,
+      "title": "Score d Anomalie (temps reel)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 6, "y": 0},
+      "targets": [{
+        "rawQuery": true,
+        "query": "SELECT mean(\"ml_anomaly_score\") FROM \"sensors_ml\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+        "refId": "A"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "palette-classic"},
+          "thresholds": {"steps": [{"color": "green"},{"color": "orange","value": 0.4},{"color": "red","value": 0.52}]},
+          "custom": {"lineWidth": 2}
+        }
+      }
+    },
+    {
+      "id": 3,
+      "title": "Nombre d Anomalies (fenetre glissante)",
+      "type": "stat",
+      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 4},
+      "targets": [{
+        "rawQuery": true,
+        "query": "SELECT count(\"ml_anomaly\") FROM \"sensors_ml\" WHERE \"ml_anomaly\" = 1 AND $timeFilter",
+        "refId": "A"
+      }],
+      "options": {"colorMode":"background","graphMode":"area"},
+      "fieldConfig": {
+        "defaults": {
+          "color": {"mode": "thresholds"},
+          "thresholds": {"steps": [{"color": "green"},{"color": "orange","value": 5},{"color": "red","value": 20}]}
+        }
+      }
+    },
+    {
+      "id": 4,
+      "title": "Temperature (C)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
+      "targets": [{
+        "rawQuery": true,
+        "query": "SELECT mean(\"temperature_c\") FROM \"sensors_ml\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 5,
+      "title": "Pression (hPa)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
+      "targets": [{
+        "rawQuery": true,
+        "query": "SELECT mean(\"pressure_hpa\") FROM \"sensors_ml\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 6,
+      "title": "Vibrations (m/s2)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
+      "targets": [{
+        "rawQuery": true,
+        "query": "SELECT mean(\"vibration_norm_ms2\") FROM \"sensors_ml\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+        "refId": "A"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "thresholds": {"steps": [{"color":"green"},{"color":"orange","value":2},{"color":"red","value":5}]}
+        }
+      }
+    },
+    {
+      "id": 7,
+      "title": "Voltage (V)",
+      "type": "timeseries",
+      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
+      "targets": [{
+        "rawQuery": true,
+        "query": "SELECT mean(\"voltage_v\") FROM \"sensors_ml\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 8,
+      "title": "Dernieres Anomalies Detectees",
+      "type": "table",
+      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24},
+      "targets": [{
+        "rawQuery": true,
+        "query": "SELECT \"temperature_c\",\"pressure_hpa\",\"vibration_norm_ms2\",\"ml_anomaly_score\",\"ml_status\" FROM \"sensors_ml\" WHERE \"ml_anomaly\" = 1 AND $timeFilter ORDER BY time DESC LIMIT 20",
+        "refId": "A"
+      }]
+    },
+    {
+      "id": 9,
+      "title": "RPM Moteur",
+      "type": "gauge",
+      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
+      "targets": [{
+        "rawQuery": true,
+        "query": "SELECT last(\"rpm\") FROM \"sensors_ml\" WHERE $timeFilter",
+        "refId": "A"
+      }],
+      "fieldConfig": {
+        "defaults": {
+          "min": 0, "max": 6000,
+          "thresholds": {"steps": [{"color":"green"},{"color":"orange","value":4000},{"color":"red","value":5000}]}
+        }
+      }
+    }
+  ],
+  "schemaVersion": 38,
+  "tags": ["iot","aeronautique","ml","anomaly-detection","pfe"],
+  "time": {"from": "now-1h", "to": "now"},
+  "timepicker": {},
+  "title": "IoT Aeronautique - Detection ML Anomalies",
+  "uid": "iot-anomaly-pfe-2026",
+  "version": 1
+}

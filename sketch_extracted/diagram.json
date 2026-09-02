@@ -1,0 +1,77 @@
+{
+  "version": 1,
+  "author": "Nourhen",
+  "editor": "wokwi",
+  "parts": [
+    { "type": "board-esp32-devkit-c-v4", "id": "esp", "top": -20, "left": -20, "attrs": {} },
+    {
+      "type": "wokwi-dht22",
+      "id": "dht1",
+      "top": -170,
+      "left": -260,
+      "attrs": { "temperature": "25", "humidity": "50" }
+    },
+    {
+      "type": "board-bmp180",
+      "id": "bmp1",
+      "top": -170,
+      "left": 170,
+      "attrs": { "temperature": "25.0", "pressure": "101325" }
+    },
+    { "type": "wokwi-mpu6050", "id": "mpu1", "top": 120, "left": 170, "attrs": {} },
+    {
+      "type": "wokwi-lcd2004",
+      "id": "lcd1",
+      "top": -250,
+      "left": 470,
+      "attrs": { "pins": "i2c" }
+    },
+    { "type": "wokwi-potentiometer", "id": "pot1", "top": 200.3, "left": -278.6, "attrs": {} },
+    {
+      "type": "wokwi-pushbutton",
+      "id": "btn1",
+      "top": 260,
+      "left": -60,
+      "attrs": { "color": "blue" }
+    },
+    {
+      "type": "wokwi-led",
+      "id": "ledGreen",
+      "top": 250,
+      "left": 80,
+      "attrs": { "color": "green" }
+    },
+    { "type": "wokwi-led", "id": "ledRed", "top": 250, "left": 170, "attrs": { "color": "red" } },
+    { "type": "wokwi-buzzer", "id": "buzz1", "top": 250, "left": 280, "attrs": {} }
+  ],
+  "connections": [
+    [ "esp:3V3", "dht1:VCC", "red", [] ],
+    [ "esp:GND.1", "dht1:GND", "black", [] ],
+    [ "esp:15", "dht1:SDA", "green", [] ],
+    [ "esp:3V3", "bmp1:VCC", "red", [] ],
+    [ "esp:GND.1", "bmp1:GND", "black", [] ],
+    [ "esp:21", "bmp1:SDA", "green", [] ],
+    [ "esp:22", "bmp1:SCL", "green", [] ],
+    [ "esp:3V3", "mpu1:VCC", "red", [] ],
+    [ "esp:GND.1", "mpu1:GND", "black", [] ],
+    [ "esp:21", "mpu1:SDA", "green", [] ],
+    [ "esp:22", "mpu1:SCL", "green", [] ],
+    [ "esp:5V", "lcd1:VCC", "red", [] ],
+    [ "esp:GND.1", "lcd1:GND", "black", [] ],
+    [ "esp:21", "lcd1:SDA", "green", [] ],
+    [ "esp:22", "lcd1:SCL", "green", [] ],
+    [ "esp:3V3", "pot1:VCC", "red", [] ],
+    [ "esp:GND.1", "pot1:GND", "black", [] ],
+    [ "esp:13", "btn1:1.l", "green", [] ],
+    [ "esp:GND.1", "btn1:2.r", "black", [] ],
+    [ "esp:26", "ledGreen:A", "green", [] ],
+    [ "ledGreen:C", "esp:GND.1", "black", [] ],
+    [ "esp:27", "ledRed:A", "red", [] ],
+    [ "ledRed:C", "esp:GND.1", "black", [] ],
+    [ "esp:25", "buzz1:1", "orange", [] ],
+    [ "buzz1:2", "esp:GND.1", "black", [] ],
+    [ "esp:34", "pot1:SIG", "blue", [] ]
+  ],
+  "serialMonitor": { "collapse": false, "display": "always" },
+  "dependencies": {}
+}

@@ -1,0 +1,139 @@
+﻿[
+  {
+    "id": "mqtt-in-esp32",
+    "type": "mqtt in",
+    "name": "ESP32 MQTT IN (HiveMQ)",
+    "topic": "aeronautique/esp32/sensors",
+    "broker": "hivemq-broker",
+    "x": 120,
+    "y": 100,
+    "wires": [["validate-payload"]]
+  },
+  {
+    "id": "validate-payload",
+    "type": "function",
+    "name": "01 - Validation Payload",
+    "func": "// Validation de la trame JSON provenant de l'ESP32\nvar payload = msg.payload;\n\n// Parse JSON si c'est une chaine\nif (typeof payload === 'string') {\n    try {\n        payload = JSON.parse(payload);\n    } catch(e) {\n        node.warn('JSON invalide: ' + e.message);\n        return null;\n    }\n}\n\n// Champs requis minimum\nvar required = ['temperature_c', 'pressure_hpa'];\nfor (var i = 0; i < required.length; i++) {\n    if (payload[required[i]] === undefined || payload[required[i]] === null) {\n        node.warn('Champ manquant: ' + required[i]);\n        // On continue quand meme (l imputer gerera les NaN)\n    }\n}\n\n// Validation des bornes physiques\nif (payload.temperature_c !== undefined) {\n    if (payload.temperature_c < -50 || payload.temperature_c > 200) {\n        node.warn('temperature_c hors bornes: ' + payload.temperature_c);\n    }\n}\nif (payload.voltage_v !== undefined) {\n    if (payload.voltage_v < 0 || payload.voltage_v > 35) {\n        node.warn('voltage_v hors bornes: ' + payload.voltage_v);\n    }\n}\n\nmsg.original_payload = JSON.parse(JSON.stringify(payload));\nmsg.payload = payload;\nmsg.validated = true;\nmsg.timestamp = new Date().toISOString();\nreturn msg;",
+    "x": 320,
+    "y": 100,
+    "wires": [["prepare-ml-input"]]
+  },
+  {
+    "id": "prepare-ml-input",
+    "type": "function",
+    "name": "02 - Preparation Input ML",
+    "func": "// Preparation des features pour le modele ML\n// IMPORTANT: utiliser exactement les memes features qu'a l'entrainement\n// Interdits: fault_injection_level_pct, failure_type, failure_event, anomaly_reference\n\nvar d = msg.payload;\n\nvar ml_input = {\n    ambient_temp_c:           d.ambient_temp_c           || null,\n    humidity_pct:             d.humidity_pct             || null,\n    altitude_m:               d.altitude_m               || null,\n    airspeed_kts:             d.airspeed_kts             || null,\n    load_pct:                 d.load_pct                 || null,\n    operating_hours:          d.operating_hours          || null,\n    flight_cycle_count:       d.flight_cycle_count       || null,\n    cycles_since_maintenance: d.cycles_since_maintenance || null,\n    maintenance_age_days:     d.maintenance_age_days     || null,\n    temperature_c:            d.temperature_c            || null,\n    atmospheric_pressure_hpa: d.atmospheric_pressure_hpa || null,\n    pressure_hpa:             d.pressure_hpa             || null,\n    vibration_x_ms2:          d.vibration_x_ms2          || null,\n    vibration_y_ms2:          d.vibration_y_ms2          || null,\n    vibration_z_ms2:          d.vibration_z_ms2          || null,\n    vibration_norm_ms2:       d.vibration_norm_ms2       || null,\n    voltage_v:                d.voltage_v                || null,\n    current_a:                d.current_a                || null,\n    power_w:                  d.power_w                  || null,\n    energy_wh_interval:       d.energy_wh_interval       || null,\n    rpm:                      d.rpm                      || null,\n    motor_current_temp_c:     d.motor_current_temp_c     || null,\n    wifi_rssi_dbm:            d.wifi_rssi_dbm            || null,\n    packet_latency_ms:        d.packet_latency_ms        || null\n};\n\nmsg.ml_input  = ml_input;\nmsg.payload   = ml_input;\nmsg.headers   = {'Content-Type': 'application/json'};\nmsg.method    = 'POST';\nmsg.url       = 'http://localhost:5000/predict';\n\nreturn msg;",
+    "x": 520,
+    "y": 100,
+    "wires": [["http-ml-api"]]
+  },
+  {
+    "id": "http-ml-api",
+    "type": "http request",
+    "name": "HTTP -> ML API /predict",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "http://localhost:5000/predict",
+    "x": 720,
+    "y": 100,
+    "wires": [["process-ml-result"], ["handle-api-error"]]
+  },
+  {
+    "id": "process-ml-result",
+    "type": "function",
+    "name": "03 - Fusion Capteurs + ML",
+    "func": "// Fusion des donnees capteurs et du resultat ML\nvar ml_result  = msg.payload;\nvar sensor_data = msg.original_payload || {};\n\n// Construction du message unifie pour InfluxDB\nmsg.payload = {\n    // Donnees capteurs\n    temperature_c:            sensor_data.temperature_c,\n    pressure_hpa:             sensor_data.pressure_hpa,\n    humidity_pct:             sensor_data.humidity_pct,\n    altitude_m:               sensor_data.altitude_m,\n    airspeed_kts:             sensor_data.airspeed_kts,\n    vibration_norm_ms2:       sensor_data.vibration_norm_ms2,\n    voltage_v:                sensor_data.voltage_v,\n    current_a:                sensor_data.current_a,\n    power_w:                  sensor_data.power_w,\n    rpm:                      sensor_data.rpm,\n    operating_hours:          sensor_data.operating_hours,\n    // Resultats ML\n    ml_anomaly:               ml_result.anomaly,\n    ml_anomaly_score:         ml_result.anomaly_score,\n    ml_status:                ml_result.status,\n    ml_threshold:             ml_result.threshold,\n    ml_model:                 ml_result.model\n};\n\n// Log si anomalie\nif (ml_result.anomaly === 1) {\n    node.warn('ANOMALIE DETECTEE | score=' + ml_result.anomaly_score + ' | ' + new Date().toISOString());\n}\n\nmsg.ml_result = ml_result;\nreturn msg;",
+    "x": 950,
+    "y": 100,
+    "wires": [["influxdb-out"], ["alert-node"]]
+  },
+  {
+    "id": "handle-api-error",
+    "type": "function",
+    "name": "Gestion Erreur API",
+    "func": "node.error('Erreur API ML: ' + msg.error.message);\n// Envoyer quand meme les donnees capteurs sans le resultat ML\nmsg.payload = msg.original_payload || {};\nmsg.payload.ml_anomaly = -1;\nmsg.payload.ml_status = 'ERROR';\nmsg.payload.ml_error = msg.error.message || 'API indisponible';\nreturn msg;",
+    "x": 950,
+    "y": 200,
+    "wires": [["influxdb-out"]]
+  },
+  {
+    "id": "alert-node",
+    "type": "function",
+    "name": "Alerte Anomalie",
+    "func": "if (msg.ml_result && msg.ml_result.anomaly === 1) {\n    // Declencher une alerte\n    var alert_msg = {\n        payload: {\n            type:    'ANOMALY_ALERT',\n            message: 'Anomalie detectee sur equipement aeronautique',\n            score:   msg.ml_result.anomaly_score,\n            time:    new Date().toISOString()\n        }\n    };\n    return alert_msg;\n}\nreturn null;",
+    "x": 1150,
+    "y": 200,
+    "wires": [["debug-alert"]]
+  },
+  {
+    "id": "influxdb-out",
+    "type": "influxdb out",
+    "name": "InfluxDB -> sensors_ml",
+    "influxdb": "influxdb-config",
+    "measurement": "sensors_ml",
+    "precision": "",
+    "retentionPolicy": "",
+    "x": 1150,
+    "y": 100,
+    "wires": []
+  },
+  {
+    "id": "debug-alert",
+    "type": "debug",
+    "name": "Debug Alertes",
+    "active": true,
+    "x": 1350,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "inject-test-normal",
+    "type": "inject",
+    "name": "Test: Scenario NORMAL",
+    "payload": "{\"temperature_c\":24.5,\"pressure_hpa\":1013.0,\"humidity_pct\":52.0,\"altitude_m\":3000.0,\"airspeed_kts\":250.0,\"vibration_norm_ms2\":0.12,\"voltage_v\":3.3,\"current_a\":0.85,\"power_w\":2.8,\"rpm\":1450.0,\"operating_hours\":1200.0,\"load_pct\":55.0,\"motor_current_temp_c\":45.0,\"wifi_rssi_dbm\":-65.0,\"packet_latency_ms\":12.0}",
+    "payloadType": "json",
+    "x": 120,
+    "y": 250,
+    "wires": [["validate-payload"]]
+  },
+  {
+    "id": "inject-test-limite",
+    "type": "inject",
+    "name": "Test: Scenario LIMITE",
+    "payload": "{\"temperature_c\":68.0,\"pressure_hpa\":980.0,\"humidity_pct\":88.0,\"altitude_m\":9500.0,\"vibration_norm_ms2\":1.8,\"voltage_v\":3.1,\"rpm\":2800.0,\"operating_hours\":4800.0,\"load_pct\":89.0}",
+    "payloadType": "json",
+    "x": 120,
+    "y": 300,
+    "wires": [["validate-payload"]]
+  },
+  {
+    "id": "inject-test-anomalie",
+    "type": "inject",
+    "name": "Test: Scenario ANOMALIE",
+    "payload": "{\"temperature_c\":142.0,\"pressure_hpa\":650.0,\"vibration_norm_ms2\":15.3,\"voltage_v\":2.4,\"current_a\":4.8,\"power_w\":11.5,\"rpm\":5500.0,\"operating_hours\":8900.0,\"motor_current_temp_c\":148.0}",
+    "payloadType": "json",
+    "x": 120,
+    "y": 350,
+    "wires": [["validate-payload"]]
+  },
+  {
+    "id": "hivemq-broker",
+    "type": "mqtt-broker",
+    "name": "HiveMQ Cloud",
+    "broker": "broker.hivemq.com",
+    "port": "1883",
+    "clientid": "node-red-pfe",
+    "keepalive": "60",
+    "cleansession": true
+  },
+  {
+    "id": "influxdb-config",
+    "type": "influxdb",
+    "hostname": "localhost",
+    "port": "8086",
+    "protocol": "http",
+    "database": "aeronautique_iot",
+    "name": "InfluxDB Local"
+  }
+]

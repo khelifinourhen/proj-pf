@@ -1,0 +1,152 @@
+﻿[
+    {
+        "id":  "flow_aircraft",
+        "type":  "tab",
+        "label":  "Aircraft Monitor",
+        "disabled":  false,
+        "info":  "ReÃ§oit les donnÃ©es MQTT de l\u0027ESP32 (Wokwi), les valide, les horodate et les Ã©crit dans InfluxDB pour Grafana."
+    },
+    {
+        "id":  "mqtt_in_sensors",
+        "type":  "mqtt in",
+        "z":  "flow_aircraft",
+        "name":  "aircraft/sensors",
+        "topic":  "aircraft/sensors",
+        "qos":  "0",
+        "datatype":  "auto-detect",
+        "broker":  "mqtt_broker_cfg",
+        "nl":  false,
+        "rap":  true,
+        "rh":  0,
+        "inputs":  0,
+        "x":  160,
+        "y":  140,
+        "wires":  [
+                      [
+                          "fn_parse_validate"
+                      ]
+                  ]
+    },
+    {
+        "id":  "fn_parse_validate",
+        "type":  "function",
+        "z":  "flow_aircraft",
+        "name":  "Parse JSON sÃ©curisÃ© + timestamp",
+        "func":  "// Corrige l\u0027erreur \"Unexpected end of JSON input\" :\n// on ne parse JAMAIS un payload vide/tronquÃ©, et on capture\n// toute erreur de JSON.parse au lieu de laisser planter le flow.\n\nlet raw = msg.payload;\n\n// Si le noeud mqtt-in est en \"auto-detect\", il arrive dÃ©jÃ  parsÃ©.\nif (typeof raw === \u0027object\u0027 \u0026\u0026 raw !== null) {\n    msg.payload = raw;\n    msg.payload.timestamp = msg.payload.timestamp || Date.now();\n    return msg;\n}\n\nif (typeof raw !== \u0027string\u0027) {\n    node.warn(\u0027Payload MQTT ignorÃ© (type inattendu): \u0027 + typeof raw);\n    return null;\n}\n\nraw = raw.trim();\n\nif (raw.length === 0) {\n    // C\u0027est la cause la plus frÃ©quente de \"Unexpected end of JSON input\" :\n    // un message MQTT vide (retained vide, LWT, ou coupure rÃ©seau).\n    node.warn(\u0027Message MQTT vide reÃ§u sur aircraft/sensors, ignorÃ©.\u0027);\n    return null;\n}\n\nlet data;\ntry {\n    data = JSON.parse(raw);\n} catch (err) {\n    node.error(\u0027JSON invalide reÃ§u (\u0027 + err.message + \u0027): \u0027 + raw, msg);\n    return null;\n}\n\n// Timestamp : on fait confiance Ã  celui envoyÃ© par l\u0027ESP32 (epoch s),\n// sinon on horodate cÃ´tÃ© Node-RED pour ne jamais perdre la donnÃ©e.\nif (!data.timestamp) {\n    data.timestamp = Math.floor(Date.now() / 1000);\n}\n\nmsg.payload = data;\nreturn msg;",
+        "outputs":  1,
+        "timeout":  0,
+        "noerr":  0,
+        "initialize":  "",
+        "finalize":  "",
+        "libs":  [
+
+                 ],
+        "x":  420,
+        "y":  140,
+        "wires":  [
+                      [
+                          "fn_to_influx_points",
+                          "debug_payload"
+                      ]
+                  ]
+    },
+    {
+        "id":  "debug_payload",
+        "type":  "debug",
+        "z":  "flow_aircraft",
+        "name":  "Payload validÃ©",
+        "active":  true,
+        "tosidebar":  true,
+        "console":  false,
+        "tostatus":  false,
+        "complete":  "true",
+        "targetType":  "full",
+        "statusVal":  "",
+        "statusType":  "auto",
+        "x":  690,
+        "y":  100,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "fn_to_influx_points",
+        "type":  "function",
+        "z":  "flow_aircraft",
+        "name":  "Formatter points InfluxDB",
+        "func":  "const d = msg.payload;\n\nmsg.payload = [\n    {\n        measurement: \"sensors\",\n        fields: {\n            temperature: Number(d.temperature),\n            humidity: Number(d.humidity),\n            pressure: Number(d.pressure),\n            altitude: Number(d.altitude),\n            accX: Number(d.accX),\n            accY: Number(d.accY),\n            accZ: Number(d.accZ),\n            potentiometer: Number(d.potentiometer)\n        },\n        tags: {\n            device: \"ESP32\"\n        },\n        timestamp: Date.now()\n    }\n];\n\nreturn msg;",
+        "outputs":  1,
+        "timeout":  0,
+        "noerr":  0,
+        "initialize":  "",
+        "finalize":  "",
+        "libs":  [
+
+                 ],
+        "x":  690,
+        "y":  200,
+        "wires":  [
+                      [
+                          "influx_out"
+                      ]
+                  ]
+    },
+    {
+        "id":  "influx_out",
+        "type":  "influxdb out",
+        "z":  "flow_aircraft",
+        "influxdb":  "influx_cfg",
+        "name":  "Ecrire InfluxDB (aircraft)",
+        "measurement":  "sensors",
+        "precision":  "",
+        "retentionPolicy":  "",
+        "database":  "database",
+        "precisionV18FluxV20":  "ms",
+        "retentionPolicyV18Flux":  "",
+        "org":  "aircraft_org",
+        "bucket":  "aircraft",
+        "x":  950,
+        "y":  180,
+        "wires":  [
+
+                  ]
+    },
+    {
+        "id":  "mqtt_broker_cfg",
+        "type":  "mqtt-broker",
+        "name":  "HiveMQ Public",
+        "broker":  "broker.hivemq.com",
+        "port":  "1883",
+        "clientid":  "nodered-aircraft",
+        "autoConnect":  true,
+        "usetls":  false,
+        "protocolVersion":  "4",
+        "keepalive":  "60",
+        "cleansession":  true
+    },
+    {
+        "id":  "influx_cfg",
+        "type":  "influxdb",
+        "hostname":  "127.0.0.1",
+        "port":  "8181",
+        "protocol":  "http",
+        "database":  "aircraft",
+        "name":  "InfluxDB 3 Core",
+        "usetls":  false,
+        "tls":  "",
+        "influxdbVersion":  "2.0",
+        "url":  "http://127.0.0.1:8181",
+        "timeout":  "",
+        "rejectUnauthorized":  true
+    },
+    {
+        "id":  "7ba498de4439a423",
+        "type":  "global-config",
+        "env":  [
+
+                ],
+        "modules":  {
+                        "node-red-contrib-influxdb":  "0.7.0"
+                    }
+    }
+]
