@@ -1,9 +1,10 @@
-﻿services:
+services:
   - type: web
     name: iot-anomaly-pfe
     runtime: python
-    buildCommand: pip install -r api/requirements.txt
-    startCommand: gunicorn -w 2 -b 0.0.0.0:$PORT "api.app_flask:app"
+    rootDir: api-ml-backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: python app_flask.py
     plan: free
     region: frankfurt
     envVars:

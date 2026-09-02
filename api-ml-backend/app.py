@@ -1,4 +1,4 @@
-﻿"""
+"""
 API FastAPI - Service de Detection d'Anomalies IoT Aeronautique
 Projet PFE 2025/2026
 
@@ -37,7 +37,19 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────
 # CHARGEMENT DES ARTEFACTS
 # ──────────────────────────────────────────────────────────
-MODEL_DIR = Path(__file__).parent.parent / "model"
+def get_model_dir() -> Path:
+    candidates = [
+        Path(__file__).parent / "model",
+        Path(__file__).parent.parent / "model",
+        Path("model"),
+        Path(__file__).parent,
+    ]
+    for c in candidates:
+        if (c / "model_pipeline.joblib").exists():
+            return c
+    return Path(__file__).parent / "model"
+
+MODEL_DIR = get_model_dir()
 
 def load_artifacts():
     """Charge le pipeline et la configuration au demarrage."""

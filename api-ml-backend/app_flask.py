@@ -1,4 +1,4 @@
-﻿import os
+import os
 """
 Service de Detection d Anomalies IoT Aeronautique
 Flask API - Version Production-Ready
@@ -31,7 +31,19 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────
 # CHARGEMENT DES ARTEFACTS AU DEMARRAGE
 # ──────────────────────────────────────────────────────────
-MODEL_DIR = Path(__file__).parent.parent / "model"
+def get_model_dir() -> Path:
+    candidates = [
+        Path(__file__).parent / "model",
+        Path(__file__).parent.parent / "model",
+        Path("model"),
+        Path(__file__).parent,
+    ]
+    for c in candidates:
+        if (c / "model_pipeline.joblib").exists():
+            return c
+    return Path(__file__).parent / "model"
+
+MODEL_DIR = get_model_dir()
 
 def load_artifacts():
     pipeline = joblib.load(MODEL_DIR / "model_pipeline.joblib")
