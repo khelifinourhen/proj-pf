@@ -1,157 +1,257 @@
 ﻿{
-  "__inputs": [],
-  "__requires": [{"type":"datasource","id":"influxdb","name":"InfluxDB","version":"1.0.0"}],
-  "annotations": {"list": []},
-  "description": "Dashboard Monitoring IoT Aeronautique + Detection ML Anomalies - PFE 2025/2026",
+  "annotations": {
+    "list": []
+  },
   "editable": true,
+  "fiscalYearStartMonth": 0,
   "graphTooltip": 1,
   "id": null,
+  "links": [],
+  "liveNow": true,
   "panels": [
     {
       "id": 1,
       "title": "Statut ML - NORMAL / ANOMALY",
       "type": "stat",
-      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 0},
-      "targets": [{
-        "rawQuery": true,
-        "query": "SELECT last(\"ml_status\") FROM \"sensors_ml\" WHERE $timeFilter",
-        "refId": "A"
-      }],
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "query": "from(bucket: \"aircraft_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement =~ /^sensors(_ml)?$/)\n  |> filter(fn: (r) => r[\"_field\"] == \"ml_status\")\n  |> group()\n  |> last()",
+          "refId": "A"
+        }
+      ],
       "options": {
         "colorMode": "background",
         "graphMode": "none",
-        "reduceOptions": {"calcs": ["lastNotNull"]}
+        "justifyMode": "auto",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
       },
       "fieldConfig": {
         "defaults": {
           "mappings": [
-            {"type": "value", "options": {"NORMAL":  {"color": "green",  "text": "NORMAL", "index": 0}}},
-            {"type": "value", "options": {"ANOMALY": {"color": "red",    "text": "ANOMALY", "index": 1}}}
-          ],
-          "color": {"mode": "thresholds"},
-          "thresholds": {"steps": [{"color": "green"},{"color": "red","value": 1}]}
+            {
+              "type": "value",
+              "options": {
+                "NORMAL": { "color": "green", "text": "NORMAL (Sain)", "index": 0 },
+                "ANOMALY": { "color": "red", "text": "⚠️ ANOMALIE", "index": 1 }
+              }
+            }
+          ]
         }
       }
     },
     {
       "id": 2,
-      "title": "Score d Anomalie (temps reel)",
+      "title": "Score d'Anomalie (Isolation Forest)",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 6, "y": 0},
-      "targets": [{
-        "rawQuery": true,
-        "query": "SELECT mean(\"ml_anomaly_score\") FROM \"sensors_ml\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
-        "refId": "A"
-      }],
+      "gridPos": { "h": 8, "w": 12, "x": 6, "y": 0 },
+      "targets": [
+        {
+          "query": "from(bucket: \"aircraft_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement =~ /^sensors(_ml)?$/)\n  |> filter(fn: (r) => r[\"_field\"] == \"ml_anomaly_score\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"score\")",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "color": {"mode": "palette-classic"},
-          "thresholds": {"steps": [{"color": "green"},{"color": "orange","value": 0.4},{"color": "red","value": 0.52}]},
-          "custom": {"lineWidth": 2}
+          "custom": {
+            "lineWidth": 2,
+            "thresholdsStyle": { "mode": "line" }
+          },
+          "color": { "mode": "palette-classic" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 0.4 },
+              { "color": "red", "value": 0.5244 }
+            ]
+          }
         }
       }
     },
     {
       "id": 3,
-      "title": "Nombre d Anomalies (fenetre glissante)",
-      "type": "stat",
-      "gridPos": {"h": 4, "w": 6, "x": 0, "y": 4},
-      "targets": [{
-        "rawQuery": true,
-        "query": "SELECT count(\"ml_anomaly\") FROM \"sensors_ml\" WHERE \"ml_anomaly\" = 1 AND $timeFilter",
-        "refId": "A"
-      }],
-      "options": {"colorMode":"background","graphMode":"area"},
+      "title": "RPM Moteur",
+      "type": "gauge",
+      "gridPos": { "h": 8, "w": 6, "x": 18, "y": 0 },
+      "targets": [
+        {
+          "query": "from(bucket: \"aircraft_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement =~ /^sensors(_ml)?$/)\n  |> filter(fn: (r) => r[\"_field\"] == \"rpm\")\n  |> group()\n  |> last()",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "color": {"mode": "thresholds"},
-          "thresholds": {"steps": [{"color": "green"},{"color": "orange","value": 5},{"color": "red","value": 20}]}
+          "unit": "rotrpm",
+          "min": 0,
+          "max": 6000,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 3000 },
+              { "color": "red", "value": 4500 }
+            ]
+          }
         }
       }
     },
     {
       "id": 4,
-      "title": "Temperature (C)",
-      "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 8},
-      "targets": [{
-        "rawQuery": true,
-        "query": "SELECT mean(\"temperature_c\") FROM \"sensors_ml\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
-        "refId": "A"
-      }]
+      "title": "Nombre d'Anomalies Détectées",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 6, "x": 0, "y": 4 },
+      "targets": [
+        {
+          "query": "from(bucket: \"aircraft_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement =~ /^sensors(_ml)?$/)\n  |> filter(fn: (r) => r[\"_field\"] == \"ml_anomaly\" and (r[\"_value\"] == 1 or r[\"_value\"] == 1.0 or r[\"_value\"] == \"1\" or r[\"_value\"] == true))\n  |> group()\n  |> count()",
+          "refId": "A"
+        }
+      ],
+      "options": {
+        "colorMode": "background",
+        "graphMode": "area",
+        "reduceOptions": {
+          "calcs": ["lastNotNull"],
+          "values": false
+        }
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 1 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
     },
     {
       "id": 5,
-      "title": "Pression (hPa)",
+      "title": "Température Capteur (°C)",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 8},
-      "targets": [{
-        "rawQuery": true,
-        "query": "SELECT mean(\"pressure_hpa\") FROM \"sensors_ml\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
-        "refId": "A"
-      }]
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "query": "from(bucket: \"aircraft_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement =~ /^sensors(_ml)?$/)\n  |> filter(fn: (r) => r[\"_field\"] == \"temperature_c\" or r[\"_field\"] == \"temperature\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"temp\")",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "celsius",
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 65 },
+              { "color": "red", "value": 90 }
+            ]
+          }
+        }
+      }
     },
     {
       "id": 6,
-      "title": "Vibrations (m/s2)",
+      "title": "Pression Atmosphérique (hPa)",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 0, "y": 16},
-      "targets": [{
-        "rawQuery": true,
-        "query": "SELECT mean(\"vibration_norm_ms2\") FROM \"sensors_ml\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
-        "refId": "A"
-      }],
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "targets": [
+        {
+          "query": "from(bucket: \"aircraft_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement =~ /^sensors(_ml)?$/)\n  |> filter(fn: (r) => r[\"_field\"] == \"pressure_hpa\" or r[\"_field\"] == \"pressure\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"pressure\")",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "thresholds": {"steps": [{"color":"green"},{"color":"orange","value":2},{"color":"red","value":5}]}
+          "unit": "hPa",
+          "custom": { "lineWidth": 2 }
         }
       }
     },
     {
       "id": 7,
-      "title": "Voltage (V)",
+      "title": "Vibrations (m/s²)",
       "type": "timeseries",
-      "gridPos": {"h": 8, "w": 12, "x": 12, "y": 16},
-      "targets": [{
-        "rawQuery": true,
-        "query": "SELECT mean(\"voltage_v\") FROM \"sensors_ml\" WHERE $timeFilter GROUP BY time($__interval) fill(none)",
-        "refId": "A"
-      }]
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 16 },
+      "targets": [
+        {
+          "query": "from(bucket: \"aircraft_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement =~ /^sensors(_ml)?$/)\n  |> filter(fn: (r) => r[\"_field\"] == \"vibration_norm_ms2\" or r[\"_field\"] == \"accX\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"vib\")",
+          "refId": "A"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "m/s²",
+          "custom": { "lineWidth": 2 },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "orange", "value": 2 },
+              { "color": "red", "value": 5 }
+            ]
+          }
+        }
+      }
     },
     {
       "id": 8,
-      "title": "Dernieres Anomalies Detectees",
-      "type": "table",
-      "gridPos": {"h": 8, "w": 24, "x": 0, "y": 24},
-      "targets": [{
-        "rawQuery": true,
-        "query": "SELECT \"temperature_c\",\"pressure_hpa\",\"vibration_norm_ms2\",\"ml_anomaly_score\",\"ml_status\" FROM \"sensors_ml\" WHERE \"ml_anomaly\" = 1 AND $timeFilter ORDER BY time DESC LIMIT 20",
-        "refId": "A"
-      }]
-    },
-    {
-      "id": 9,
-      "title": "RPM Moteur",
-      "type": "gauge",
-      "gridPos": {"h": 4, "w": 6, "x": 18, "y": 0},
-      "targets": [{
-        "rawQuery": true,
-        "query": "SELECT last(\"rpm\") FROM \"sensors_ml\" WHERE $timeFilter",
-        "refId": "A"
-      }],
+      "title": "Alimentation Électrique (Tension & Courant)",
+      "type": "timeseries",
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 16 },
+      "targets": [
+        {
+          "query": "from(bucket: \"aircraft_telemetry\")\n  |> range(start: v.timeRangeStart, stop: v.timeRangeStop)\n  |> filter(fn: (r) => r._measurement =~ /^sensors(_ml)?$/)\n  |> filter(fn: (r) => r[\"_field\"] == \"voltage_v\" or r[\"_field\"] == \"current_a\")\n  |> aggregateWindow(every: v.windowPeriod, fn: mean, createEmpty: false)\n  |> yield(name: \"electrical\")",
+          "refId": "A"
+        }
+      ],
       "fieldConfig": {
         "defaults": {
-          "min": 0, "max": 6000,
-          "thresholds": {"steps": [{"color":"green"},{"color":"orange","value":4000},{"color":"red","value":5000}]}
-        }
+          "custom": { "lineWidth": 2 }
+        },
+        "overrides": [
+          {
+            "matcher": { "id": "byName", "options": "voltage_v" },
+            "properties": [
+              { "id": "unit", "value": "volt" },
+              { "id": "custom.axisPlacement", "value": "left" },
+              { "id": "custom.axisLabel", "value": "Tension (V)" }
+            ]
+          },
+          {
+            "matcher": { "id": "byName", "options": "current_a" },
+            "properties": [
+              { "id": "unit", "value": "amp" },
+              { "id": "custom.axisPlacement", "value": "right" },
+              { "id": "custom.axisLabel", "value": "Courant (A)" }
+            ]
+          }
+        ]
       }
     }
   ],
+  "refresh": "5s",
   "schemaVersion": 38,
-  "tags": ["iot","aeronautique","ml","anomaly-detection","pfe"],
-  "time": {"from": "now-1h", "to": "now"},
-  "timepicker": {},
-  "title": "IoT Aeronautique - Detection ML Anomalies",
-  "uid": "iot-anomaly-pfe-2026",
-  "version": 1
+  "style": "dark",
+  "tags": ["Aeronautique", "IoT", "Machine Learning", "PFE"],
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": ["5s", "10s", "30s", "1m", "5m"]
+  },
+  "timezone": "browser",
+  "title": "✈️ PFE IoT Aéronautique (FINAL)",
+  "version": 4
 }

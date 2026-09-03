@@ -1,152 +1,154 @@
 ﻿[
-    {
-        "id":  "flow_aircraft",
-        "type":  "tab",
-        "label":  "Aircraft Monitor",
-        "disabled":  false,
-        "info":  "ReÃ§oit les donnÃ©es MQTT de l\u0027ESP32 (Wokwi), les valide, les horodate et les Ã©crit dans InfluxDB pour Grafana."
-    },
-    {
-        "id":  "mqtt_in_sensors",
-        "type":  "mqtt in",
-        "z":  "flow_aircraft",
-        "name":  "aircraft/sensors",
-        "topic":  "aircraft/sensors",
-        "qos":  "0",
-        "datatype":  "auto-detect",
-        "broker":  "mqtt_broker_cfg",
-        "nl":  false,
-        "rap":  true,
-        "rh":  0,
-        "inputs":  0,
-        "x":  160,
-        "y":  140,
-        "wires":  [
-                      [
-                          "fn_parse_validate"
-                      ]
-                  ]
-    },
-    {
-        "id":  "fn_parse_validate",
-        "type":  "function",
-        "z":  "flow_aircraft",
-        "name":  "Parse JSON sÃ©curisÃ© + timestamp",
-        "func":  "// Corrige l\u0027erreur \"Unexpected end of JSON input\" :\n// on ne parse JAMAIS un payload vide/tronquÃ©, et on capture\n// toute erreur de JSON.parse au lieu de laisser planter le flow.\n\nlet raw = msg.payload;\n\n// Si le noeud mqtt-in est en \"auto-detect\", il arrive dÃ©jÃ  parsÃ©.\nif (typeof raw === \u0027object\u0027 \u0026\u0026 raw !== null) {\n    msg.payload = raw;\n    msg.payload.timestamp = msg.payload.timestamp || Date.now();\n    return msg;\n}\n\nif (typeof raw !== \u0027string\u0027) {\n    node.warn(\u0027Payload MQTT ignorÃ© (type inattendu): \u0027 + typeof raw);\n    return null;\n}\n\nraw = raw.trim();\n\nif (raw.length === 0) {\n    // C\u0027est la cause la plus frÃ©quente de \"Unexpected end of JSON input\" :\n    // un message MQTT vide (retained vide, LWT, ou coupure rÃ©seau).\n    node.warn(\u0027Message MQTT vide reÃ§u sur aircraft/sensors, ignorÃ©.\u0027);\n    return null;\n}\n\nlet data;\ntry {\n    data = JSON.parse(raw);\n} catch (err) {\n    node.error(\u0027JSON invalide reÃ§u (\u0027 + err.message + \u0027): \u0027 + raw, msg);\n    return null;\n}\n\n// Timestamp : on fait confiance Ã  celui envoyÃ© par l\u0027ESP32 (epoch s),\n// sinon on horodate cÃ´tÃ© Node-RED pour ne jamais perdre la donnÃ©e.\nif (!data.timestamp) {\n    data.timestamp = Math.floor(Date.now() / 1000);\n}\n\nmsg.payload = data;\nreturn msg;",
-        "outputs":  1,
-        "timeout":  0,
-        "noerr":  0,
-        "initialize":  "",
-        "finalize":  "",
-        "libs":  [
-
-                 ],
-        "x":  420,
-        "y":  140,
-        "wires":  [
-                      [
-                          "fn_to_influx_points",
-                          "debug_payload"
-                      ]
-                  ]
-    },
-    {
-        "id":  "debug_payload",
-        "type":  "debug",
-        "z":  "flow_aircraft",
-        "name":  "Payload validÃ©",
-        "active":  true,
-        "tosidebar":  true,
-        "console":  false,
-        "tostatus":  false,
-        "complete":  "true",
-        "targetType":  "full",
-        "statusVal":  "",
-        "statusType":  "auto",
-        "x":  690,
-        "y":  100,
-        "wires":  [
-
-                  ]
-    },
-    {
-        "id":  "fn_to_influx_points",
-        "type":  "function",
-        "z":  "flow_aircraft",
-        "name":  "Formatter points InfluxDB",
-        "func":  "const d = msg.payload;\n\nmsg.payload = [\n    {\n        measurement: \"sensors\",\n        fields: {\n            temperature: Number(d.temperature),\n            humidity: Number(d.humidity),\n            pressure: Number(d.pressure),\n            altitude: Number(d.altitude),\n            accX: Number(d.accX),\n            accY: Number(d.accY),\n            accZ: Number(d.accZ),\n            potentiometer: Number(d.potentiometer)\n        },\n        tags: {\n            device: \"ESP32\"\n        },\n        timestamp: Date.now()\n    }\n];\n\nreturn msg;",
-        "outputs":  1,
-        "timeout":  0,
-        "noerr":  0,
-        "initialize":  "",
-        "finalize":  "",
-        "libs":  [
-
-                 ],
-        "x":  690,
-        "y":  200,
-        "wires":  [
-                      [
-                          "influx_out"
-                      ]
-                  ]
-    },
-    {
-        "id":  "influx_out",
-        "type":  "influxdb out",
-        "z":  "flow_aircraft",
-        "influxdb":  "influx_cfg",
-        "name":  "Ecrire InfluxDB (aircraft)",
-        "measurement":  "sensors",
-        "precision":  "",
-        "retentionPolicy":  "",
-        "database":  "database",
-        "precisionV18FluxV20":  "ms",
-        "retentionPolicyV18Flux":  "",
-        "org":  "aircraft_org",
-        "bucket":  "aircraft",
-        "x":  950,
-        "y":  180,
-        "wires":  [
-
-                  ]
-    },
-    {
-        "id":  "mqtt_broker_cfg",
-        "type":  "mqtt-broker",
-        "name":  "HiveMQ Public",
-        "broker":  "broker.hivemq.com",
-        "port":  "1883",
-        "clientid":  "nodered-aircraft",
-        "autoConnect":  true,
-        "usetls":  false,
-        "protocolVersion":  "4",
-        "keepalive":  "60",
-        "cleansession":  true
-    },
-    {
-        "id":  "influx_cfg",
-        "type":  "influxdb",
-        "hostname":  "127.0.0.1",
-        "port":  "8181",
-        "protocol":  "http",
-        "database":  "aircraft",
-        "name":  "InfluxDB 3 Core",
-        "usetls":  false,
-        "tls":  "",
-        "influxdbVersion":  "2.0",
-        "url":  "http://127.0.0.1:8181",
-        "timeout":  "",
-        "rejectUnauthorized":  true
-    },
-    {
-        "id":  "7ba498de4439a423",
-        "type":  "global-config",
-        "env":  [
-
-                ],
-        "modules":  {
-                        "node-red-contrib-influxdb":  "0.7.0"
-                    }
-    }
+  {
+    "id": "tab_aircraft_pfe",
+    "type": "tab",
+    "label": "Pipeline IoT & ML Aeronautique",
+    "disabled": false,
+    "info": "Pipeline complet : MQTT ESP32 -> API ML Render -> InfluxDB Cloud -> Grafana"
+  },
+  {
+    "id": "mqtt_esp32_in",
+    "type": "mqtt in",
+    "z": "tab_aircraft_pfe",
+    "name": "MQTT HiveMQ (aircraft/sensors)",
+    "topic": "aircraft/sensors",
+    "qos": "0",
+    "datatype": "auto-detect",
+    "broker": "broker_hivemq",
+    "nl": false,
+    "rap": true,
+    "rh": 0,
+    "inputs": 0,
+    "x": 160,
+    "y": 120,
+    "wires": [["fn_validate_payload"]]
+  },
+  {
+    "id": "fn_validate_payload",
+    "type": "function",
+    "z": "tab_aircraft_pfe",
+    "name": "01 - Validation & Formatage",
+    "func": "let raw = msg.payload;\nif (typeof raw === 'string') {\n    try {\n        raw = JSON.parse(raw);\n    } catch (err) {\n        node.warn('JSON invalide ignore: ' + err.message);\n        return null;\n    }\n}\n\nif (!raw || typeof raw !== 'object') {\n    return null;\n}\n\n// Mappage standard des capteurs Wokwi vers les noms de features ML\nlet sensor_data = {\n    temperature_c: Number(raw.temperature !== undefined ? raw.temperature : 25.0),\n    pressure_hpa: Number(raw.pressure !== undefined ? raw.pressure : 1013.0),\n    humidity_pct: Number(raw.humidity !== undefined ? raw.humidity : 50.0),\n    altitude_m: Number(raw.altitude !== undefined ? raw.altitude : 0.0),\n    vibration_x_ms2: Number(raw.accX !== undefined ? raw.accX : 0.0),\n    vibration_y_ms2: Number(raw.accY !== undefined ? raw.accY : 0.0),\n    vibration_z_ms2: Number(raw.accZ !== undefined ? raw.accZ : 9.8),\n    vibration_norm_ms2: Math.sqrt(Math.pow(raw.accX || 0, 2) + Math.pow(raw.accY || 0, 2) + Math.pow((raw.accZ || 9.8) - 9.8, 2)),\n    rpm: Number(raw.potentiometer !== undefined ? raw.potentiometer * 60 : 1500.0),\n    voltage_v: 3.3,\n    current_a: 0.85,\n    power_w: 2.8,\n    operating_hours: 1200,\n    load_pct: Number(raw.potentiometer !== undefined ? raw.potentiometer : 50)\n};\n\nmsg.sensor_data = sensor_data;\nmsg.payload = sensor_data;\nmsg.headers = { 'Content-Type': 'application/json' };\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 430,
+    "y": 120,
+    "wires": [["http_ml_predict"]]
+  },
+  {
+    "id": "http_ml_predict",
+    "type": "http request",
+    "z": "tab_aircraft_pfe",
+    "name": "02 - Inférence ML (Render API)",
+    "method": "POST",
+    "ret": "obj",
+    "paytoqs": "ignore",
+    "url": "https://iot-anomaly-detection-api.onrender.com/predict",
+    "tls": "",
+    "persist": false,
+    "proxy": "",
+    "insecureHTTPParser": false,
+    "authType": "",
+    "senderr": false,
+    "headers": [],
+    "x": 720,
+    "y": 120,
+    "wires": [["fn_merge_results"], ["fn_api_fallback"]]
+  },
+  {
+    "id": "fn_merge_results",
+    "type": "function",
+    "z": "tab_aircraft_pfe",
+    "name": "03 - Fusion Capteurs + ML",
+    "func": "let ml = msg.payload || {};\nlet s = msg.sensor_data || {};\n\n// Format Point InfluxDB\nmsg.payload = [{\n    measurement: 'sensors_ml',\n    fields: {\n        temperature_c: s.temperature_c,\n        pressure_hpa: s.pressure_hpa,\n        humidity_pct: s.humidity_pct,\n        altitude_m: s.altitude_m,\n        vibration_norm_ms2: s.vibration_norm_ms2,\n        rpm: s.rpm,\n        voltage_v: s.voltage_v,\n        current_a: s.current_a,\n        power_w: s.power_w,\n        ml_anomaly: ml.anomaly !== undefined ? Number(ml.anomaly) : 0,\n        ml_anomaly_score: ml.anomaly_score !== undefined ? Number(ml.anomaly_score) : 0.15,\n        ml_threshold: ml.threshold !== undefined ? Number(ml.threshold) : 0.5244,\n        ml_status: ml.status || (ml.anomaly === 1 ? 'ANOMALY' : 'NORMAL')\n    },\n    tags: {\n        device: 'ESP32_Wokwi',\n        model: ml.model || 'IsolationForest_v2'\n    },\n    timestamp: Date.now()\n}];\n\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 1000,
+    "y": 120,
+    "wires": [["influxdb_cloud_out", "debug_output"]]
+  },
+  {
+    "id": "fn_api_fallback",
+    "type": "function",
+    "z": "tab_aircraft_pfe",
+    "name": "Gestion Fallback",
+    "func": "let s = msg.sensor_data || {};\nmsg.payload = [{\n    measurement: 'sensors_ml',\n    fields: {\n        temperature_c: s.temperature_c,\n        pressure_hpa: s.pressure_hpa,\n        humidity_pct: s.humidity_pct,\n        altitude_m: s.altitude_m,\n        vibration_norm_ms2: s.vibration_norm_ms2,\n        rpm: s.rpm,\n        voltage_v: s.voltage_v,\n        current_a: s.current_a,\n        power_w: s.power_w,\n        ml_anomaly: 0,\n        ml_anomaly_score: 0.0,\n        ml_status: 'API_WAITING'\n    },\n    tags: {\n        device: 'ESP32_Wokwi'\n    },\n    timestamp: Date.now()\n}];\nreturn msg;",
+    "outputs": 1,
+    "noerr": 0,
+    "initialize": "",
+    "finalize": "",
+    "libs": [],
+    "x": 990,
+    "y": 200,
+    "wires": [["influxdb_cloud_out"]]
+  },
+  {
+    "id": "influxdb_cloud_out",
+    "type": "influxdb out",
+    "z": "tab_aircraft_pfe",
+    "influxdb": "influx_cloud_cfg",
+    "name": "InfluxDB Cloud (sensors_ml)",
+    "measurement": "sensors_ml",
+    "precision": "ms",
+    "retentionPolicy": "",
+    "database": "database",
+    "precisionV18FluxV20": "ms",
+    "retentionPolicyV18Flux": "",
+    "org": "16de2b41623de972",
+    "bucket": "aircraft_telemetry",
+    "x": 1270,
+    "y": 120,
+    "wires": []
+  },
+  {
+    "id": "debug_output",
+    "type": "debug",
+    "z": "tab_aircraft_pfe",
+    "name": "Debug InfluxDB Payload",
+    "active": true,
+    "tosidebar": true,
+    "console": false,
+    "tostatus": false,
+    "complete": "payload",
+    "targetType": "msg",
+    "statusVal": "",
+    "statusType": "auto",
+    "x": 1260,
+    "y": 200,
+    "wires": []
+  },
+  {
+    "id": "broker_hivemq",
+    "type": "mqtt-broker",
+    "name": "HiveMQ Public Broker",
+    "broker": "broker.hivemq.com",
+    "port": "1883",
+    "clientid": "nodered-pfe-client",
+    "autoConnect": true,
+    "usetls": false,
+    "protocolVersion": "4",
+    "keepalive": "60",
+    "cleansession": true
+  },
+  {
+    "id": "influx_cloud_cfg",
+    "type": "influxdb",
+    "hostname": "127.0.0.1",
+    "port": "8086",
+    "protocol": "http",
+    "database": "database",
+    "name": "InfluxDB Cloud AWS",
+    "usetls": false,
+    "tls": "",
+    "influxdbVersion": "2.0",
+    "url": "https://eu-central-1-1.aws.cloud2.influxdata.com",
+    "timeout": "10",
+    "rejectUnauthorized": true
+  }
 ]

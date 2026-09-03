@@ -5,7 +5,7 @@
 
 $env:Path = [System.Environment]::GetEnvironmentVariable("Path","Machine") + ";" + [System.Environment]::GetEnvironmentVariable("Path","User")
 
-$SKETCH = "$PSScriptRoot\sketch_extracted.ino"
+$SKETCH = "$PSScriptRoot\sketch.ino"
 $BUILD_DIR = "$PSScriptRoot\build"
 $FQBN = "esp32:esp32:esp32"
 

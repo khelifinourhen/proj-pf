@@ -1,0 +1,4 @@
+﻿[wokwi]
+version = 1
+elf = "edge-esp32/build/sketch.ino.elf"
+firmware = "edge-esp32/build/sketch.ino.bin"
