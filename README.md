@@ -1,5 +1,5 @@
 ﻿# ✈️ Système IoT & Machine Learning pour la Maintenance Prédictive Aéronautique
-> **Projet de Fin d'Études (PFE 2026)** — Détection d'anomalies en temps réel et maintenance prédictive pour capteurs IoT aéronautiques.
+> **Projet de Fin d'annnes (PFA 2026)** — Détection d'anomalies en temps réel et maintenance prédictive pour capteurs IoT aéronautiques.
 
 ---
 
@@ -31,9 +31,11 @@ Ce projet propose une solution complète et de bout-en-bout (*End-to-End*) combi
   - **
 ode-red/** : Flux Node-RED (lows.json) pour l'orchestration des données.
   - **grafana/** : Configuration et dashboards Grafana pour la visualisation temps réel.
-  - **Dockerfile & ender.yaml** : Fichiers de conteneurisation et de déploiement cloud (Render.com).
+  - **Dockerfile & 
+ender.yaml** : Fichiers de conteneurisation et de déploiement cloud (Render.com).
 - **
-otebooks/ & scripts ML** : Scripts d'entraînement (	rain_and_save_pipeline.py, un_final_audit.py) et notebooks Jupyter d'analyse exploratoire et d'évaluation.
+otebooks/ & scripts ML** : Scripts d'entraînement (	rain_and_save_pipeline.py, 
+un_final_audit.py) et notebooks Jupyter d'analyse exploratoire et d'évaluation.
 - **Documentation Académique** :
   - RAPPORT_PFE_COMPLET.md : Rapport complet de PFE structuré par chapitres.
   - diagrammes_UML_corriges.md : Diagrammes de cas d'utilisation, séquence, classes et composants.
